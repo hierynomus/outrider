@@ -122,7 +122,7 @@ pub async fn copy_secret_to_cluster(
     // Copy the secret to downstream cluster
     let downstream_secrets: Api<Secret> = Api::namespaced(downstream_client, target_namespace);
 
-    let new_secret = create_downstream_secret(secret);
+    let new_secret = create_downstream_secret(secret, target_namespace);
 
     // Apply the secret (create or update)
     let pp = PatchParams::apply("outrider").force();
@@ -140,7 +140,7 @@ pub async fn copy_secret_to_cluster(
     Ok(())
 }
 
-fn create_downstream_secret(secret: &Secret) -> Secret {
+fn create_downstream_secret(secret: &Secret, target_namespace: &str) -> Secret {
     // Filter out outrider annotations from the copied secret
     let filtered_annotations = secret
         .metadata
@@ -156,7 +156,7 @@ fn create_downstream_secret(secret: &Secret) -> Secret {
     let mut downstream_secret = secret.clone();
     downstream_secret.metadata = ObjectMeta {
         name: secret.metadata.name.clone(),
-        namespace: secret.metadata.namespace.clone(),
+        namespace: Some(target_namespace.to_string()),
         labels: secret.metadata.labels.clone(),
         annotations: filtered_annotations,
         ..Default::default()

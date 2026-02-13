@@ -6,6 +6,6 @@ rules:
   - apiGroups: [""]
     resources: ["secrets", "namespaces"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["provisioning.cattle.io/v1"]
+  - apiGroups: ["provisioning.cattle.io"]
     resources: ["clusters"]
     verbs: ["get", "list", "watch"]
