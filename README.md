@@ -1,7 +1,7 @@
 
 # Outrider 🤠
 
-![Outrider banner](https://raw.githubusercontent.com/hierynomus/outrider/main/assets/outrider-banner.png)
+![Outrider banner](https://raw.githubusercontent.com/hierynomus/outrider/main/assets/banner.svg)
 
 Like the outriders in the Wild West, this operator rides ahead to ensure your secrets are safely delivered to all your downstream clusters before your GitOps deployments kick off. No more manually creating your secrets on your downstream clusters or waiting around for secrets to sync or worrying about missing credentials in your Fleet-managed clusters. Outrider has got you covered, blazing a trail of secure secret distribution across your Rancher and Kubernetes landscape.
 
