@@ -26,7 +26,11 @@ spec:
           image: {{ default .Values.image.registry .Values.global.imageRegistry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: []
-          env: []
+          env:
+            - name: RUST_LOG
+              value: {{ .Values.logLevel | default "warn" }}
+            - name: DEFAULT_TARGET_NAMESPACE
+              value: {{ .Values.defaultTargetNamespace }}
           resources:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}

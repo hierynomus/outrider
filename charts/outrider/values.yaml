@@ -22,3 +22,6 @@ resources:
 
 fullnameOverride: ""
 nameOverride: ""
+
+logLevel: "info"
+defaultTargetNamespace: ""
