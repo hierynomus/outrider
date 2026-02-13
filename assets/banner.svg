@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#16213e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e94560;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="groundGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b4513;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#5d3a1a;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Sky background -->
+  <rect width="800" height="200" fill="url(#skyGradient)"/>
+
+  <!-- Stars -->
+  <circle cx="50" cy="30" r="1.5" fill="#fff" opacity="0.8"/>
+  <circle cx="120" cy="45" r="1" fill="#fff" opacity="0.6"/>
+  <circle cx="200" cy="25" r="1.5" fill="#fff" opacity="0.7"/>
+  <circle cx="280" cy="50" r="1" fill="#fff" opacity="0.5"/>
+  <circle cx="350" cy="20" r="1.5" fill="#fff" opacity="0.8"/>
+  <circle cx="450" cy="40" r="1" fill="#fff" opacity="0.6"/>
+  <circle cx="520" cy="30" r="1.5" fill="#fff" opacity="0.7"/>
+  <circle cx="600" cy="55" r="1" fill="#fff" opacity="0.5"/>
+  <circle cx="680" cy="25" r="1.5" fill="#fff" opacity="0.8"/>
+  <circle cx="750" cy="45" r="1" fill="#fff" opacity="0.6"/>
+
+  <!-- Setting sun -->
+  <circle cx="650" cy="140" r="35" fill="#ff6b35" opacity="0.9"/>
+  <circle cx="650" cy="140" r="28" fill="#ffc857" opacity="0.8"/>
+
+  <!-- Desert ground -->
+  <path d="M0,160 Q100,150 200,155 Q300,160 400,150 Q500,155 600,160 Q700,155 800,160 L800,200 L0,200 Z" fill="url(#groundGradient)"/>
+
+  <!-- Cactus silhouettes -->
+  <g fill="#2d3436" opacity="0.7">
+    <!-- Left cactus -->
+    <rect x="80" y="130" width="8" height="35"/>
+    <rect x="72" y="140" width="8" height="15"/>
+    <rect x="72" y="140" width="16" height="5"/>
+    <rect x="88" y="145" width="8" height="12"/>
+    <rect x="80" y="145" width="16" height="5"/>
+
+    <!-- Right cactus -->
+    <rect x="720" y="125" width="10" height="40"/>
+    <rect x="710" y="135" width="10" height="18"/>
+    <rect x="710" y="135" width="20" height="6"/>
+    <rect x="730" y="142" width="10" height="15"/>
+    <rect x="720" y="142" width="20" height="6"/>
+  </g>
+
+  <!-- Horse and rider silhouette -->
+  <g transform="translate(100, 95)" fill="#1a1a2e">
+    <!-- Horse body -->
+    <ellipse cx="40" cy="45" rx="30" ry="18"/>
+    <!-- Horse legs -->
+    <rect x="15" y="55" width="6" height="25" rx="2"/>
+    <rect x="28" y="58" width="6" height="22" rx="2"/>
+    <rect x="48" y="55" width="6" height="25" rx="2"/>
+    <rect x="60" y="58" width="6" height="22" rx="2"/>
+    <!-- Horse neck -->
+    <path d="M65,35 Q75,15 80,20 Q85,25 78,45 Q70,50 65,45 Z"/>
+    <!-- Horse head -->
+    <ellipse cx="82" cy="18" rx="10" ry="8"/>
+    <!-- Horse ear -->
+    <polygon points="85,10 88,5 91,12"/>
+    <!-- Horse tail -->
+    <path d="M10,40 Q-5,50 5,65" stroke="#1a1a2e" stroke-width="4" fill="none"/>
+
+    <!-- Rider body -->
+    <ellipse cx="45" cy="25" rx="10" ry="12"/>
+    <!-- Rider head -->
+    <circle cx="45" cy="8" r="8"/>
+    <!-- Cowboy hat -->
+    <ellipse cx="45" cy="2" rx="14" ry="4"/>
+    <rect x="38" y="-2" width="14" height="6" rx="2"/>
+  </g>
+
+  <!-- Main title -->
+  <text x="400" y="85" font-family="Georgia, serif" font-size="56" font-weight="bold" fill="#ffc857" text-anchor="middle" filter="url(#glow)">
+    OUTRIDER
+  </text>
+
+  <!-- Subtitle -->
+  <text x="400" y="115" font-family="Arial, sans-serif" font-size="14" fill="#e8e8e8" text-anchor="middle" letter-spacing="3">
+    SECRET DISTRIBUTION FOR RANCHER
+  </text>
+
+  <!-- Kubernetes icon hint -->
+  <g transform="translate(400, 150)" fill="none" stroke="#326ce5" stroke-width="1.5" opacity="0.6">
+    <circle cx="0" cy="0" r="12"/>
+    <path d="M0,-8 L0,8 M-7,-4 L7,4 M-7,4 L7,-4"/>
+  </g>
+
+  <!-- Decorative line -->
+  <line x1="250" y1="130" x2="350" y2="130" stroke="#ffc857" stroke-width="1" opacity="0.5"/>
+  <line x1="450" y1="130" x2="550" y2="130" stroke="#ffc857" stroke-width="1" opacity="0.5"/>
+
+  <!-- Small icons -->
+  <g transform="translate(300, 155)" fill="#e8e8e8" opacity="0.7">
+    <rect x="-8" y="-8" width="16" height="16" rx="2" fill="none" stroke="#e8e8e8" stroke-width="1"/>
+    <text x="0" y="4" font-size="10" text-anchor="middle">🔐</text>
+  </g>
+  <g transform="translate(500, 155)" fill="#e8e8e8" opacity="0.7">
+    <text x="0" y="4" font-size="14" text-anchor="middle">☸</text>
+  </g>
+
+  <!-- Rust badge -->
+  <g transform="translate(760, 175)">
+    <text font-family="Arial, sans-serif" font-size="10" fill="#dea584" text-anchor="end">
+      Built with Rust 🦀
+    </text>
+  </g>
+</svg>
