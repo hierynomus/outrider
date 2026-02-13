@@ -1,6 +1,6 @@
 # Outrider 🤠
 
-A Kubernetes operator for Rancher that automatically copies secrets from the Rancher Manager cluster to downstream clusters before Fleet GitOps deployments.
+Like the outriders in the Wild West, this operator rides ahead to ensure your secrets are safely delivered to all your downstream clusters before your GitOps deployments kick off. No more manually creating your secrets on your downstream clusters or waiting around for secrets to sync or worrying about missing credentials in your Fleet-managed clusters. Outrider has got you covered, blazing a trail of secure secret distribution across your Kubernetes landscape.
 
 ## Overview
 
@@ -9,7 +9,7 @@ Outrider watches for:
 1. **Secrets** in the Rancher Manager cluster with the annotation `outrider.geeko.me/enabled: "true"`
 2. **Rancher Clusters** (provisioning.cattle.io/v1) that reach Ready status
 
-When either event occurs, Outrider copies all annotated secrets to all ready downstream clusters.
+When either event occurs, Outrider copies all annotated secrets to any ready downstream clusters.
 
 ## Features
 
@@ -108,34 +108,10 @@ cargo run
 
 ## Deployment
 
-Use the Helm chart (to be created) for production deployments.
-
-## Development
-
-### Project Structure
-
-```
-outrider/
-├── src/
-│   ├── main.rs              # Entry point, controller setup
-│   ├── config.rs            # Configuration management
-│   ├── error.rs             # Error types
-│   └── controllers/
-│       ├── mod.rs           # Controller module
-│       ├── secret.rs        # SecretReconciler
-│       ├── cluster.rs       # ClusterReconciler
-│       └── utils.rs         # Shared utilities
-├── Cargo.toml               # Dependencies
-└── README.md                # This file
-```
-
-### Key Dependencies
-
-- `kube` - Kubernetes client and runtime
-- `k8s-openapi` - Kubernetes API types
-- `tokio` - Async runtime
-- `tracing` - Logging
+Use the Helm chart for production deployments.
 
 ## License
 
-TBD
+Apache 2.0
+
+Built with 💚 in Rust, powered by kube-rs.

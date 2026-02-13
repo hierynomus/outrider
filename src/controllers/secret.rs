@@ -1,7 +1,6 @@
-// Copyright 2025, Jeroen van Erp <jeroen@geeko.me>
+// Copyright 2026, Jeroen van Erp <jeroen@geeko.me>
 // SPDX-License-Identifier: Apache-2.0
-use crate::config::Config;
-use crate::controllers::utils::{copy_secret_to_cluster, get_ready_clusters};
+use crate::controllers::sync_manager::{SyncEvent, SyncManagerHandle};
 use crate::error::{OutriderError, Result};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Secret;
@@ -9,21 +8,20 @@ use kube::{
     runtime::{controller::Action, Controller},
     Api, Client, ResourceExt,
 };
+use kube_runtime::watcher::Config as WatcherConfig;
 use std::sync::Arc;
-use std::time::Duration;
-use tracing::{debug, error, info, warn};
-use kube_runtime::watcher::{Config as WatcherConfig};
+use tracing::{debug, error, warn};
 
 const ENABLED_ANNOTATION: &str = "outrider.geeko.me/enabled";
 
 pub struct SecretReconciler {
     client: Client,
-    config: Config,
+    sync_handle: SyncManagerHandle,
 }
 
 impl SecretReconciler {
-    pub fn new(client: Client, config: Config) -> Self {
-        Self { client, config }
+    pub fn new(client: Client, sync_handle: SyncManagerHandle) -> Self {
+        Self { client, sync_handle }
     }
 
     pub async fn run(self) -> anyhow::Result<()> {
@@ -51,8 +49,10 @@ async fn reconcile(secret: Arc<Secret>, ctx: Arc<SecretReconciler>) -> Result<Ac
     debug!("Reconciling secret: {}/{}", namespace, name);
 
     // Check if secret has the enabled annotation
-    let annotations = secret.metadata.annotations.as_ref();
-    let is_enabled = annotations
+    let is_enabled = secret
+        .metadata
+        .annotations
+        .as_ref()
         .and_then(|a| a.get(ENABLED_ANNOTATION))
         .map(|v| v == "true")
         .unwrap_or(false);
@@ -65,52 +65,17 @@ async fn reconcile(secret: Arc<Secret>, ctx: Arc<SecretReconciler>) -> Result<Ac
         return Ok(Action::await_change());
     }
 
-    info!(
-        "Processing enabled secret: {}/{}",
-        namespace, name
-    );
+    // Notify the sync manager about the secret change
+    ctx.sync_handle
+        .send(SyncEvent::SecretChanged {
+            secret: (*secret).clone(),
+        })
+        .await;
 
-    // Get all ready clusters
-    let clusters = match get_ready_clusters(&ctx.client).await {
-        Ok(c) => c,
-        Err(e) => {
-            error!("Failed to get ready clusters: {}", e);
-            return Err(e);
-        }
-    };
-
-    if clusters.is_empty() {
-        info!("No ready clusters found, nothing to do");
-        return Ok(Action::requeue(Duration::from_secs(60)));
-    }
-
-    info!("Found {} ready clusters", clusters.len());
-
-    // Copy secret to all ready clusters
-    for cluster in clusters {
-        let cluster_name = cluster.name_any();
-        match copy_secret_to_cluster(&ctx.client, &secret, &cluster, &ctx.config).await {
-            Ok(_) => {
-                info!(
-                    "Successfully copied secret {}/{} to cluster {}",
-                    namespace, name, cluster_name
-                );
-            }
-            Err(e) => {
-                error!(
-                    "Failed to copy secret {}/{} to cluster {}: {}",
-                    namespace, name, cluster_name, e
-                );
-                // Continue with other clusters even if one fails
-            }
-        }
-    }
-
-    // Recheck after 5 minutes in case new clusters appear
-    Ok(Action::requeue(Duration::from_secs(300)))
+    Ok(Action::await_change())
 }
 
 fn error_policy(_secret: Arc<Secret>, error: &OutriderError, _ctx: Arc<SecretReconciler>) -> Action {
     error!("Reconciliation error: {}", error);
-    Action::requeue(Duration::from_secs(60))
+    Action::requeue(std::time::Duration::from_secs(60))
 }

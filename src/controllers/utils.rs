@@ -1,3 +1,5 @@
+// Copyright 2026, Jeroen van Erp <jeroen@geeko.me>
+// SPDX-License-Identifier: Apache-2.0
 use crate::config::Config;
 use crate::types::cluster::Cluster;
 use crate::error::{OutriderError, Result};
@@ -120,15 +122,7 @@ pub async fn copy_secret_to_cluster(
     // Copy the secret to downstream cluster
     let downstream_secrets: Api<Secret> = Api::namespaced(downstream_client, target_namespace);
 
-    // Create a new secret with the same data but clean metadata
-    let mut new_secret = secret.clone();
-    new_secret.metadata = ObjectMeta {
-        name: Some(secret_name.clone()),
-        namespace: Some(target_namespace.to_string()),
-        labels: secret.metadata.labels.clone(),
-        annotations: secret.metadata.annotations.clone(),
-        ..Default::default()
-    };
+    let new_secret = create_downstream_secret(secret);
 
     // Apply the secret (create or update)
     let pp = PatchParams::apply("outrider").force();
@@ -144,6 +138,30 @@ pub async fn copy_secret_to_cluster(
     );
 
     Ok(())
+}
+
+fn create_downstream_secret(secret: &Secret) -> Secret {
+    // Filter out outrider annotations from the copied secret
+    let filtered_annotations = secret
+        .metadata
+        .annotations
+        .as_ref()
+        .map(|a| {
+            a.iter()
+                .filter(|(k, _)| !k.starts_with("outrider.geeko.me/"))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect()
+        });
+
+    let mut downstream_secret = secret.clone();
+    downstream_secret.metadata = ObjectMeta {
+        name: secret.metadata.name.clone(),
+        namespace: secret.metadata.namespace.clone(),
+        labels: secret.metadata.labels.clone(),
+        annotations: filtered_annotations,
+        ..Default::default()
+    };
+    downstream_secret
 }
 
 /// Get kubeconfig secret for a Rancher downstream cluster
@@ -189,7 +207,7 @@ async fn create_client_from_kubeconfig(kubeconfig: &str) -> Result<Client> {
 
     info!("Creating Kubernetes client from kubeconfig for cluster: {}...", kubeconfig);
 
-    let mut kubeconfig_parsed: Kubeconfig = serde_yaml::from_str(kubeconfig).map_err(|e| {
+    let kubeconfig_parsed: Kubeconfig = serde_yaml::from_str(kubeconfig).map_err(|e| {
         OutriderError::KubeconfigError(format!("Failed to parse kubeconfig: {}", e))
     })?;
 

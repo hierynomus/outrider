@@ -1,5 +1,7 @@
-use crate::config::Config;
-use crate::controllers::utils::{copy_secret_to_cluster, get_enabled_secrets, is_cluster_ready, is_local_cluster};
+// Copyright 2026, Jeroen van Erp <jeroen@geeko.me>
+// SPDX-License-Identifier: Apache-2.0
+use crate::controllers::sync_manager::{SyncEvent, SyncManagerHandle};
+use crate::controllers::utils::{is_cluster_ready, is_local_cluster};
 use crate::error::{OutriderError, Result};
 use crate::types::cluster::Cluster;
 use futures::StreamExt;
@@ -9,16 +11,16 @@ use kube::{
 };
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 pub struct ClusterReconciler {
     client: Client,
-    config: Config,
+    sync_handle: SyncManagerHandle,
 }
 
 impl ClusterReconciler {
-    pub fn new(client: Client, config: Config) -> Self {
-        Self { client, config }
+    pub fn new(client: Client, sync_handle: SyncManagerHandle) -> Self {
+        Self { client, sync_handle }
     }
 
     pub async fn run(self) -> anyhow::Result<()> {
@@ -50,54 +52,27 @@ async fn reconcile(cluster: Arc<Cluster>, ctx: Arc<ClusterReconciler>) -> Result
 
     debug!("Reconciling cluster: {}", name);
 
-    // Check if cluster is ready
-    if !is_cluster_ready(&cluster) {
-        debug!("Cluster '{}' is not ready yet, skipping", name);
-        return Ok(Action::requeue(Duration::from_secs(30)));
+    let is_ready = is_cluster_ready(&cluster);
+
+    // Notify the sync manager about the cluster state
+    if is_ready {
+        ctx.sync_handle
+            .send(SyncEvent::ClusterBecameReady {
+                cluster: (*cluster).clone(),
+            })
+            .await;
+    } else {
+        ctx.sync_handle
+            .send(SyncEvent::ClusterBecameNotReady { name: name.clone() })
+            .await;
     }
 
-    info!("Cluster '{}' is ready, copying secrets", name);
-
-    // Get all enabled secrets
-    let secrets = match get_enabled_secrets(&ctx.client).await {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Failed to get enabled secrets: {}", e);
-            return Err(e);
-        }
-    };
-
-    if secrets.is_empty() {
-        info!("No enabled secrets found, nothing to do");
-        return Ok(Action::await_change());
+    // If not ready, recheck periodically
+    if is_ready {
+        Ok(Action::await_change())
+    } else {
+        Ok(Action::requeue(Duration::from_secs(30)))
     }
-
-    info!("Found {} enabled secrets", secrets.len());
-
-    // Copy all enabled secrets to this cluster
-    for secret in secrets {
-        let secret_name = secret.name_any();
-        let secret_ns = secret.namespace().unwrap_or_default();
-
-        match copy_secret_to_cluster(&ctx.client, &secret, &cluster, &ctx.config).await {
-            Ok(_) => {
-                info!(
-                    "Successfully copied secret {}/{} to cluster {}",
-                    secret_ns, secret_name, name
-                );
-            }
-            Err(e) => {
-                error!(
-                    "Failed to copy secret {}/{} to cluster {}: {}",
-                    secret_ns, secret_name, name, e
-                );
-                // Continue with other secrets even if one fails
-            }
-        }
-    }
-
-    // Recheck after 5 minutes in case new secrets appear
-    Ok(Action::requeue(Duration::from_secs(300)))
 }
 
 fn error_policy(

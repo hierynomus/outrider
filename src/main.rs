@@ -1,9 +1,15 @@
+// Copyright 2026, Jeroen van Erp <jeroen@geeko.me>
+// SPDX-License-Identifier: Apache-2.0
 use anyhow::Result;
 use kube::Client;
 use tracing::{info, warn};
 
 use outrider::config::Config;
-use outrider::controllers::{cluster::ClusterReconciler, secret::SecretReconciler};
+use outrider::controllers::{
+    cluster::ClusterReconciler,
+    secret::SecretReconciler,
+    sync_manager::SyncManager,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -23,14 +29,18 @@ async fn main() -> Result<()> {
     let client = Client::try_default().await?;
     info!("Connected to Kubernetes cluster");
 
-    // Start both controllers concurrently
-    let secret_controller = SecretReconciler::new(client.clone(), config.clone());
-    let cluster_controller = ClusterReconciler::new(client.clone(), config.clone());
+    // Create the sync manager and get a handle for controllers
+    let (sync_manager, sync_handle) = SyncManager::new(client.clone(), config.clone());
+
+    // Create controllers with the sync handle
+    let secret_controller = SecretReconciler::new(client.clone(), sync_handle.clone());
+    let cluster_controller = ClusterReconciler::new(client.clone(), sync_handle);
 
     info!("Starting controllers...");
 
-    // Run both controllers concurrently, both must succeed
+    // Run sync manager and both controllers concurrently
     tokio::try_join!(
+        sync_manager.run(),
         secret_controller.run(),
         cluster_controller.run()
     )?;
