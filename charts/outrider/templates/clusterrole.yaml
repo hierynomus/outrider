@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "outrider.serviceAccountName" . }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["provisioning.cattle.io/v1"]
+    resources: ["clusters"]
+    verbs: ["get", "list", "watch"]

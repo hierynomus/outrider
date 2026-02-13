@@ -1,0 +1,9 @@
+apiVersion: v2
+name: outrider
+version: 0.1.0
+appVersion: 0.1.0
+description: Propagates annotated Secrets to downstream clusters managed by Rancher
+maintainers:
+  - name: hierynomus
+    email: jeroen@geeko.me
+type: application
