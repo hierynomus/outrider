@@ -20,7 +20,8 @@ pub struct ClusterSpec {
 #[derive(Serialize, Deserialize, Clone, Debug, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ClusterStatus {
-    pub client_secret_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret_name: Option<String>,
     pub cluster_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ready: Option<bool>,

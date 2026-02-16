@@ -227,7 +227,7 @@ fn create_downstream_secret(secret: &Secret, target_namespace: &str) -> Secret {
 /// Get kubeconfig secret for a Rancher downstream cluster
 async fn get_cluster_kubeconfig(client: &Client, cluster: &Cluster) -> Result<String> {
     let cluster_name = cluster.name_any();
-    let secret_name: String = cluster.status.as_ref().and_then(|s| Some(s.client_secret_name.clone())).get_or_insert_default().clone();
+    let secret_name: String = cluster.status.as_ref().and_then(|s| s.client_secret_name.clone()).unwrap_or_else(|| format!("{}-kubeconfig", cluster_name));
     let namespace = cluster.namespace().unwrap_or_else(|| "cattle-system".to_string());
     let secrets: Api<Secret> = Api::namespaced(client.clone(), &namespace);
 

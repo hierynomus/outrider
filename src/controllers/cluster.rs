@@ -67,12 +67,8 @@ async fn reconcile(cluster: Arc<Cluster>, ctx: Arc<ClusterReconciler>) -> Result
             .await;
     }
 
-    // If not ready, recheck periodically
-    if is_ready {
-        Ok(Action::await_change())
-    } else {
-        Ok(Action::requeue(Duration::from_secs(30)))
-    }
+    // Wait for the next change - the watcher will notify us when the cluster changes or is deleted
+    Ok(Action::await_change())
 }
 
 fn error_policy(
