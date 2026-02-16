@@ -1,8 +1,10 @@
 // Copyright 2026, Jeroen van Erp <jeroen@geeko.me>
 // SPDX-License-Identifier: Apache-2.0
-use crate::controllers::sync_manager::{SyncEvent, SyncManagerHandle};
-use crate::controllers::utils::{is_cluster_ready, is_local_cluster};
+
+//! Cluster reconciler - watches Rancher Cluster resources and notifies sync manager.
+
 use crate::error::{OutriderError, Result};
+use crate::sync::{SyncEvent, SyncManagerHandle};
 use crate::types::cluster::Cluster;
 use futures::StreamExt;
 use kube::{
@@ -25,7 +27,6 @@ impl ClusterReconciler {
 
     pub async fn run(self) -> anyhow::Result<()> {
         let clusters: Api<Cluster> = Api::all(self.client.clone());
-
         let context = Arc::new(self);
 
         Controller::new(clusters, watcher::Config::default())
@@ -45,17 +46,15 @@ impl ClusterReconciler {
 async fn reconcile(cluster: Arc<Cluster>, ctx: Arc<ClusterReconciler>) -> Result<Action> {
     let name = cluster.name_any();
 
-    if is_local_cluster(&cluster) {
+    if cluster.is_local() {
         debug!("Skipping local cluster");
         return Ok(Action::await_change());
     }
 
     debug!("Reconciling cluster: {}", name);
 
-    let is_ready = is_cluster_ready(&cluster);
-
     // Notify the sync manager about the cluster state
-    if is_ready {
+    if cluster.is_ready() {
         ctx.sync_handle
             .send(SyncEvent::ClusterBecameReady {
                 cluster: (*cluster).clone(),

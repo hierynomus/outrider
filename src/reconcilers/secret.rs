@@ -1,7 +1,11 @@
 // Copyright 2026, Jeroen van Erp <jeroen@geeko.me>
 // SPDX-License-Identifier: Apache-2.0
-use crate::controllers::sync_manager::{SyncEvent, SyncManagerHandle};
+
+//! Secret reconciler - watches Secrets and notifies sync manager of enabled ones.
+
+use crate::constants::annotations;
 use crate::error::{OutriderError, Result};
+use crate::sync::{SyncEvent, SyncManagerHandle};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Secret;
 use kube::{
@@ -10,9 +14,8 @@ use kube::{
 };
 use kube_runtime::watcher::Config as WatcherConfig;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, error, warn};
-
-const ENABLED_ANNOTATION: &str = "outrider.geeko.me/enabled";
 
 pub struct SecretReconciler {
     client: Client,
@@ -53,9 +56,8 @@ async fn reconcile(secret: Arc<Secret>, ctx: Arc<SecretReconciler>) -> Result<Ac
         .metadata
         .annotations
         .as_ref()
-        .and_then(|a| a.get(ENABLED_ANNOTATION))
-        .map(|v| v == "true")
-        .unwrap_or(false);
+        .and_then(|a| a.get(annotations::ENABLED))
+        .is_some_and(|v| v == "true");
 
     if !is_enabled {
         debug!(
@@ -75,7 +77,11 @@ async fn reconcile(secret: Arc<Secret>, ctx: Arc<SecretReconciler>) -> Result<Ac
     Ok(Action::await_change())
 }
 
-fn error_policy(_secret: Arc<Secret>, error: &OutriderError, _ctx: Arc<SecretReconciler>) -> Action {
+fn error_policy(
+    _secret: Arc<Secret>,
+    error: &OutriderError,
+    _ctx: Arc<SecretReconciler>,
+) -> Action {
     error!("Reconciliation error: {}", error);
-    Action::requeue(std::time::Duration::from_secs(60))
+    Action::requeue(Duration::from_secs(60))
 }
