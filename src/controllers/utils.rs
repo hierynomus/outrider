@@ -265,13 +265,9 @@ async fn get_cluster_kubeconfig(client: &Client, cluster: &Cluster) -> Result<St
 async fn create_client_from_kubeconfig(kubeconfig: &str) -> Result<Client> {
     use kube::config::{Kubeconfig, KubeConfigOptions};
 
-    info!("Creating Kubernetes client from kubeconfig for cluster: {}...", kubeconfig);
-
     let kubeconfig_parsed: Kubeconfig = serde_yaml::from_str(kubeconfig).map_err(|e| {
         OutriderError::KubeconfigError(format!("Failed to parse kubeconfig: {}", e))
     })?;
-
-    info!("Creating Kubernetes client from kubeconfig {:?}...", kubeconfig_parsed);
 
     let client_config = kube::Config::from_custom_kubeconfig(
         kubeconfig_parsed,
