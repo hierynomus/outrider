@@ -25,3 +25,107 @@ impl Config {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    // Mutex to serialize tests that modify environment variables
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+    fn with_env_vars<F, R>(vars: &[(&str, Option<&str>)], f: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        let _guard = ENV_MUTEX.lock().unwrap();
+
+        // Save original values and set new ones
+        let originals: Vec<_> = vars
+            .iter()
+            .map(|(key, value)| {
+                let original = env::var(key).ok();
+                match value {
+                    Some(v) => env::set_var(key, v),
+                    None => env::remove_var(key),
+                }
+                (*key, original)
+            })
+            .collect();
+
+        let result = f();
+
+        // Restore original values
+        for (key, original) in originals {
+            match original {
+                Some(v) => env::set_var(key, v),
+                None => env::remove_var(key),
+            }
+        }
+
+        result
+    }
+
+    #[test]
+    fn test_from_env_success() {
+        with_env_vars(
+            &[
+                ("DEFAULT_TARGET_NAMESPACE", Some("my-namespace")),
+                ("TESTING_MODE", None),
+            ],
+            || {
+                let config = Config::from_env().unwrap();
+                assert_eq!(config.default_target_namespace, "my-namespace");
+                assert!(!config.testing_mode);
+            },
+        );
+    }
+
+    #[test]
+    fn test_from_env_with_testing_mode() {
+        with_env_vars(
+            &[
+                ("DEFAULT_TARGET_NAMESPACE", Some("my-namespace")),
+                ("TESTING_MODE", Some("true")),
+            ],
+            || {
+                let config = Config::from_env().unwrap();
+                assert_eq!(config.default_target_namespace, "my-namespace");
+                assert!(config.testing_mode);
+            },
+        );
+    }
+
+    #[test]
+    fn test_from_env_missing_namespace() {
+        with_env_vars(
+            &[
+                ("DEFAULT_TARGET_NAMESPACE", None),
+                ("TESTING_MODE", None),
+            ],
+            || {
+                let result = Config::from_env();
+                assert!(result.is_err());
+                assert!(result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("DEFAULT_TARGET_NAMESPACE"));
+            },
+        );
+    }
+
+    #[test]
+    fn test_from_env_invalid_testing_mode() {
+        with_env_vars(
+            &[
+                ("DEFAULT_TARGET_NAMESPACE", Some("my-namespace")),
+                ("TESTING_MODE", Some("not-a-bool")),
+            ],
+            || {
+                let config = Config::from_env().unwrap();
+                // Invalid bool parses to false
+                assert!(!config.testing_mode);
+            },
+        );
+    }
+}

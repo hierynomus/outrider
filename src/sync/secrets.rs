@@ -124,3 +124,157 @@ fn create_downstream_secret(secret: &Secret, target_namespace: &str) -> Secret {
         immutable: secret.immutable,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use k8s_openapi::ByteString;
+    use std::collections::BTreeMap;
+
+    fn make_secret(
+        name: &str,
+        namespace: &str,
+        annotations: Option<BTreeMap<String, String>>,
+    ) -> Secret {
+        Secret {
+            metadata: ObjectMeta {
+                name: Some(name.to_string()),
+                namespace: Some(namespace.to_string()),
+                annotations,
+                ..Default::default()
+            },
+            data: Some(BTreeMap::from([(
+                "password".to_string(),
+                ByteString("secret123".as_bytes().to_vec()),
+            )])),
+            type_: Some("Opaque".to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn make_config(default_namespace: &str) -> Config {
+        Config {
+            default_target_namespace: default_namespace.to_string(),
+            testing_mode: false,
+        }
+    }
+
+    #[test]
+    fn test_is_secret_enabled_true() {
+        let secret = make_secret(
+            "my-secret",
+            "default",
+            Some(BTreeMap::from([(
+                annotations::ENABLED.to_string(),
+                "true".to_string(),
+            )])),
+        );
+
+        assert!(is_secret_enabled(&secret));
+    }
+
+    #[test]
+    fn test_is_secret_enabled_false_value() {
+        let secret = make_secret(
+            "my-secret",
+            "default",
+            Some(BTreeMap::from([(
+                annotations::ENABLED.to_string(),
+                "false".to_string(),
+            )])),
+        );
+
+        assert!(!is_secret_enabled(&secret));
+    }
+
+    #[test]
+    fn test_is_secret_enabled_no_annotation() {
+        let secret = make_secret("my-secret", "default", None);
+        assert!(!is_secret_enabled(&secret));
+    }
+
+    #[test]
+    fn test_is_secret_enabled_wrong_annotation() {
+        let secret = make_secret(
+            "my-secret",
+            "default",
+            Some(BTreeMap::from([(
+                "some.other/annotation".to_string(),
+                "true".to_string(),
+            )])),
+        );
+
+        assert!(!is_secret_enabled(&secret));
+    }
+
+    #[test]
+    fn test_get_target_namespace_from_annotation() {
+        let secret = make_secret(
+            "my-secret",
+            "default",
+            Some(BTreeMap::from([(
+                annotations::NAMESPACE.to_string(),
+                "custom-namespace".to_string(),
+            )])),
+        );
+        let config = make_config("default-ns");
+
+        assert_eq!(get_target_namespace(&secret, &config), "custom-namespace");
+    }
+
+    #[test]
+    fn test_get_target_namespace_fallback_to_config() {
+        let secret = make_secret("my-secret", "default", None);
+        let config = make_config("default-ns");
+
+        assert_eq!(get_target_namespace(&secret, &config), "default-ns");
+    }
+
+    #[test]
+    fn test_create_downstream_secret_filters_outrider_annotations() {
+        let secret = make_secret(
+            "my-secret",
+            "source-ns",
+            Some(BTreeMap::from([
+                (annotations::ENABLED.to_string(), "true".to_string()),
+                (annotations::NAMESPACE.to_string(), "target-ns".to_string()),
+                ("keep.this/annotation".to_string(), "value".to_string()),
+            ])),
+        );
+
+        let downstream = create_downstream_secret(&secret, "target-ns");
+
+        let annotations = downstream.metadata.annotations.unwrap();
+        assert!(!annotations.contains_key(annotations::ENABLED));
+        assert!(!annotations.contains_key(annotations::NAMESPACE));
+        assert_eq!(annotations.get("keep.this/annotation").unwrap(), "value");
+    }
+
+    #[test]
+    fn test_create_downstream_secret_sets_target_namespace() {
+        let secret = make_secret("my-secret", "source-ns", None);
+
+        let downstream = create_downstream_secret(&secret, "target-ns");
+
+        assert_eq!(downstream.metadata.namespace.unwrap(), "target-ns");
+    }
+
+    #[test]
+    fn test_create_downstream_secret_preserves_data() {
+        let secret = make_secret("my-secret", "source-ns", None);
+
+        let downstream = create_downstream_secret(&secret, "target-ns");
+
+        assert_eq!(downstream.data, secret.data);
+        assert_eq!(downstream.type_, secret.type_);
+    }
+
+    #[test]
+    fn test_create_downstream_secret_preserves_name() {
+        let secret = make_secret("my-secret", "source-ns", None);
+
+        let downstream = create_downstream_secret(&secret, "target-ns");
+
+        assert_eq!(downstream.metadata.name.unwrap(), "my-secret");
+    }
+}

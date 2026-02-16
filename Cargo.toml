@@ -18,6 +18,14 @@ anyhow = "1.0"
 thiserror = "1.0"
 schemars = "0.8"
 url = "2.5.8"
+http = "1.1"
+tower-test = "0.4"
+hyper = { version = "1.4", features = ["full"] }
+http-body-util = "0.1"
+bytes = "1.7"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
 
 [profile.release]
 opt-level = "z"

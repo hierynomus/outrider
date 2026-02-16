@@ -73,3 +73,183 @@ pub struct Condition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kube::api::ObjectMeta;
+
+    fn make_cluster(name: &str, status: Option<ClusterStatus>) -> Cluster {
+        Cluster {
+            metadata: ObjectMeta {
+                name: Some(name.to_string()),
+                namespace: Some("fleet-default".to_string()),
+                ..Default::default()
+            },
+            spec: ClusterSpec {
+                kubernetes_version: None,
+                local: None,
+                display_name: None,
+            },
+            status,
+        }
+    }
+
+    fn make_ready_condition() -> Condition {
+        Condition {
+            condition_type: "Ready".to_string(),
+            status: "True".to_string(),
+            message: None,
+        }
+    }
+
+    fn make_not_ready_condition() -> Condition {
+        Condition {
+            condition_type: "Ready".to_string(),
+            status: "False".to_string(),
+            message: Some("Cluster is not ready".to_string()),
+        }
+    }
+
+    #[test]
+    fn test_is_ready_with_ready_condition() {
+        let cluster = make_cluster(
+            "test-cluster",
+            Some(ClusterStatus {
+                cluster_name: "c-12345".to_string(),
+                client_secret_name: None,
+                ready: Some(true),
+                conditions: Some(vec![make_ready_condition()]),
+            }),
+        );
+
+        assert!(cluster.is_ready());
+    }
+
+    #[test]
+    fn test_is_ready_with_not_ready_condition() {
+        let cluster = make_cluster(
+            "test-cluster",
+            Some(ClusterStatus {
+                cluster_name: "c-12345".to_string(),
+                client_secret_name: None,
+                ready: Some(false),
+                conditions: Some(vec![make_not_ready_condition()]),
+            }),
+        );
+
+        assert!(!cluster.is_ready());
+    }
+
+    #[test]
+    fn test_is_ready_with_no_conditions() {
+        let cluster = make_cluster(
+            "test-cluster",
+            Some(ClusterStatus {
+                cluster_name: "c-12345".to_string(),
+                client_secret_name: None,
+                ready: None,
+                conditions: None,
+            }),
+        );
+
+        assert!(!cluster.is_ready());
+    }
+
+    #[test]
+    fn test_is_ready_with_no_status() {
+        let cluster = make_cluster("test-cluster", None);
+        assert!(!cluster.is_ready());
+    }
+
+    #[test]
+    fn test_is_ready_with_multiple_conditions() {
+        let cluster = make_cluster(
+            "test-cluster",
+            Some(ClusterStatus {
+                cluster_name: "c-12345".to_string(),
+                client_secret_name: None,
+                ready: Some(true),
+                conditions: Some(vec![
+                    Condition {
+                        condition_type: "Provisioned".to_string(),
+                        status: "True".to_string(),
+                        message: None,
+                    },
+                    make_ready_condition(),
+                ]),
+            }),
+        );
+
+        assert!(cluster.is_ready());
+    }
+
+    #[test]
+    fn test_is_local_true() {
+        let cluster = make_cluster("local", None);
+        assert!(cluster.is_local());
+    }
+
+    #[test]
+    fn test_is_local_false() {
+        let cluster = make_cluster("downstream-cluster", None);
+        assert!(!cluster.is_local());
+    }
+
+    #[test]
+    fn test_kubeconfig_secret_name_from_status() {
+        let cluster = make_cluster(
+            "test-cluster",
+            Some(ClusterStatus {
+                cluster_name: "c-12345".to_string(),
+                client_secret_name: Some("custom-kubeconfig-secret".to_string()),
+                ready: None,
+                conditions: None,
+            }),
+        );
+
+        assert_eq!(cluster.kubeconfig_secret_name(), "custom-kubeconfig-secret");
+    }
+
+    #[test]
+    fn test_kubeconfig_secret_name_fallback() {
+        let cluster = make_cluster(
+            "test-cluster",
+            Some(ClusterStatus {
+                cluster_name: "c-12345".to_string(),
+                client_secret_name: None,
+                ready: None,
+                conditions: None,
+            }),
+        );
+
+        assert_eq!(cluster.kubeconfig_secret_name(), "test-cluster-kubeconfig");
+    }
+
+    #[test]
+    fn test_kubeconfig_secret_name_no_status() {
+        let cluster = make_cluster("test-cluster", None);
+        assert_eq!(cluster.kubeconfig_secret_name(), "test-cluster-kubeconfig");
+    }
+
+    #[test]
+    fn test_internal_name_from_status() {
+        let cluster = make_cluster(
+            "test-cluster",
+            Some(ClusterStatus {
+                cluster_name: "c-12345".to_string(),
+                client_secret_name: None,
+                ready: None,
+                conditions: None,
+            }),
+        );
+
+        assert_eq!(cluster.internal_name(), "c-12345");
+    }
+
+    #[test]
+    fn test_internal_name_fallback() {
+        let cluster = make_cluster("test-cluster", None);
+        assert_eq!(cluster.internal_name(), "test-cluster");
+    }
+}

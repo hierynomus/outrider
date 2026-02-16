@@ -43,7 +43,8 @@ pub async fn wait_for_cluster_crd(client: &Client) -> Result<()> {
 }
 
 /// Check if the Cluster CRD exists by attempting to discover it.
-async fn check_cluster_crd_exists(client: &Client) -> Result<bool> {
+/// Made pub(crate) for testing.
+pub(crate) async fn check_cluster_crd_exists(client: &Client) -> Result<bool> {
     let discovery = Discovery::new(client.clone())
         .filter(&["provisioning.cattle.io"])
         .run()
@@ -60,4 +61,108 @@ async fn check_cluster_crd_exists(client: &Client) -> Result<bool> {
     }
 
     Ok(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::MockService;
+
+    fn api_groups_json() -> String {
+        // Discovery API lists groups here - include provisioning.cattle.io
+        serde_json::json!({
+            "kind": "APIGroupList",
+            "apiVersion": "v1",
+            "groups": [
+                {
+                    "name": "provisioning.cattle.io",
+                    "versions": [
+                        {"groupVersion": "provisioning.cattle.io/v1", "version": "v1"}
+                    ],
+                    "preferredVersion": {"groupVersion": "provisioning.cattle.io/v1", "version": "v1"}
+                }
+            ]
+        })
+        .to_string()
+    }
+
+    fn api_versions_json() -> String {
+        serde_json::json!({
+            "kind": "APIVersions",
+            "versions": ["v1"]
+        })
+        .to_string()
+    }
+
+    fn provisioning_group_json() -> String {
+        serde_json::json!({
+            "kind": "APIGroup",
+            "apiVersion": "v1",
+            "name": "provisioning.cattle.io",
+            "versions": [
+                {"groupVersion": "provisioning.cattle.io/v1", "version": "v1"}
+            ],
+            "preferredVersion": {"groupVersion": "provisioning.cattle.io/v1", "version": "v1"}
+        })
+        .to_string()
+    }
+
+    fn provisioning_resources_json() -> String {
+        serde_json::json!({
+            "kind": "APIResourceList",
+            "apiVersion": "v1",
+            "groupVersion": "provisioning.cattle.io/v1",
+            "resources": [
+                {
+                    "name": "clusters",
+                    "singularName": "cluster",
+                    "namespaced": true,
+                    "kind": "Cluster",
+                    "verbs": ["create", "delete", "get", "list", "patch", "update", "watch"]
+                }
+            ]
+        })
+        .to_string()
+    }
+
+    #[tokio::test]
+    async fn test_crd_exists_returns_true() {
+        let mock = MockService::new()
+            // Discovery queries these endpoints
+            .on_get("/api", 200, &api_versions_json())
+            .on_get("/apis", 200, &api_groups_json())
+            .on_get("/apis/provisioning.cattle.io", 200, &provisioning_group_json())
+            .on_get(
+                "/apis/provisioning.cattle.io/v1",
+                200,
+                &provisioning_resources_json(),
+            );
+
+        let client = mock.into_client();
+        let result = check_cluster_crd_exists(&client).await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_crd_not_found_returns_false() {
+        // When the API group doesn't exist/have the CRD
+        let empty_groups = serde_json::json!({
+            "kind": "APIGroupList",
+            "apiVersion": "v1",
+            "groups": []
+        })
+        .to_string();
+
+        let mock = MockService::new()
+            .on_get("/api", 200, &api_versions_json())
+            .on_get("/apis", 200, &empty_groups);
+
+        let client = mock.into_client();
+        let result = check_cluster_crd_exists(&client).await;
+
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
 }

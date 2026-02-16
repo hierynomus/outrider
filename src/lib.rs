@@ -8,3 +8,6 @@ pub mod kubernetes;
 pub mod reconcilers;
 pub mod sync;
 pub mod types;
+
+#[cfg(test)]
+pub mod test_utils;
