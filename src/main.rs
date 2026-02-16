@@ -9,6 +9,7 @@ use outrider::controllers::{
     cluster::ClusterReconciler,
     secret::SecretReconciler,
     sync_manager::SyncManager,
+    utils::wait_for_cluster_crd,
 };
 
 #[tokio::main]
@@ -28,6 +29,10 @@ async fn main() -> Result<()> {
     // Create Kubernetes client
     let client = Client::try_default().await?;
     info!("Connected to Kubernetes cluster");
+
+    // Wait for Rancher Cluster CRD before starting controllers
+    info!("Waiting for Rancher Cluster CRD to become available...");
+    wait_for_cluster_crd(&client).await?;
 
     // Create the sync manager and get a handle for controllers
     let (sync_manager, sync_handle) = SyncManager::new(client.clone(), config.clone());
